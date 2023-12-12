@@ -184,14 +184,10 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  send_debug_CDC("Data Simuasi");
-	  modbus(0x02, 0x03, 0x00, 0x02, 0x00, 0x02);
+	  send_debug_CDC("\n");
+	  send_debug_CDC("Modbus Request Data");
 
-
-//	  send_debug_CDC("Data Bove");
-//	  modbus(0x01, 0x03, 0x00, 0x07, 0x00, 0x02);
-//
-
+	  modbus(0x02, 0x03, 0x00, 0x00, 0x00, 0x0A);
 	  HAL_Delay(1000);
     /* USER CODE END WHILE */
 
@@ -262,7 +258,7 @@ static void MX_USART1_UART_Init(void)
 
   /* USER CODE END USART1_Init 1 */
   huart1.Instance = USART1;
-  huart1.Init.BaudRate = 115200;
+  huart1.Init.BaudRate = 9600;
   huart1.Init.WordLength = UART_WORDLENGTH_8B;
   huart1.Init.StopBits = UART_STOPBITS_1;
   huart1.Init.Parity = UART_PARITY_NONE;
