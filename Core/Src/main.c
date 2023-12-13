@@ -45,6 +45,7 @@
 
 /* Private variables ---------------------------------------------------------*/
 UART_HandleTypeDef huart1;
+UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
 uint8_t Rxdata[32];
@@ -58,6 +59,7 @@ char *text;
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_USART1_UART_Init(void);
+static void MX_USART2_UART_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -85,15 +87,18 @@ void send_debug_CDC(char *data){
 	printf(dataCDC);
 	HAL_Delay(5);
 	HAL_GPIO_WritePin(LED_PIN_GPIO_Port, LED_PIN_Pin, 1);
-
+	free(text);
 }
 
 void modbus(uint8_t slaveAdd, uint8_t funcCode, uint8_t startAddr1, uint8_t startAddr2, uint8_t qty1, uint8_t qty2){
 	uint8_t* dataFrame[] = {&slaveAdd, &funcCode, &startAddr1, &startAddr2, &qty1, &qty2};
-	HAL_UARTEx_ReceiveToIdle_IT(&huart1, Rxdata, 32);
+
+	HAL_UARTEx_ReceiveToIdle_IT(&huart2, Rxdata, 32);
+
 	for (int x = 0; x < 6; x++){
 		Txdata[x] = *dataFrame[x];
 	}
+
 	uint16_t crc = crc16(Txdata, 6);
     Txdata[6] = crc & 0xFF;         // CRC Low
     Txdata[7] = (crc >> 8) & 0xFF;  // CRC High
@@ -101,13 +106,16 @@ void modbus(uint8_t slaveAdd, uint8_t funcCode, uint8_t startAddr1, uint8_t star
 }
 
 void request_modbus(uint8_t *data){
+
 	send_debug_CDC("[Modbus Request : ");
 	HAL_GPIO_WritePin(TX_EN_GPIO_Port, TX_EN_Pin, 1);
-	HAL_UART_Transmit(&huart1, data, 8, 1000);
+	HAL_UART_Transmit(&huart2, data, 8, 1000);
+
 	int offset = 0;
 	for (int i = 0; i < sizeof(Txdata)/sizeof(Txdata[0]); i++){
 		offset+= sprintf(text+offset, "%02X", Txdata[i]);
 	}
+
 	send_debug_CDC(text);
 	HAL_GPIO_WritePin(TX_EN_GPIO_Port, TX_EN_Pin, 0);
 
@@ -119,10 +127,8 @@ void request_modbus(uint8_t *data){
 		}
 		send_debug_CDC("Modbus Response :");
 		send_debug_CDC(text);
-		printf(text);
 		HAL_Delay(5);
-		memset(Rxdata, 0, sizeof(Rxdata));
-		free(text);
+
 	}else{
 		modbus_stat = 0;
 		send_debug_CDC("Modbus Response :");
@@ -132,11 +138,9 @@ void request_modbus(uint8_t *data){
 		}
 		sprintf(text,"No Response from slave!!!");
 		send_debug_CDC(text);
-		printf(text);
 		HAL_Delay(5);
-		memset(Rxdata, 0, sizeof(Rxdata));
-		free(text);
 	}
+	memset(Rxdata, 0, sizeof(Rxdata));
 }
 
 void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size){
@@ -175,6 +179,7 @@ int main(void)
   MX_GPIO_Init();
   MX_USB_DEVICE_Init();
   MX_USART1_UART_Init();
+  MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
   send_debug_CDC("[MODBUS RTU PROGRAM]");
   text = malloc(512);
@@ -184,9 +189,6 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  send_debug_CDC("\n");
-	  send_debug_CDC("Modbus Request Data");
-
 	  modbus(0x02, 0x03, 0x00, 0x00, 0x00, 0x0A);
 	  HAL_Delay(1000);
     /* USER CODE END WHILE */
@@ -276,6 +278,39 @@ static void MX_USART1_UART_Init(void)
 }
 
 /**
+  * @brief USART2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_USART2_UART_Init(void)
+{
+
+  /* USER CODE BEGIN USART2_Init 0 */
+
+  /* USER CODE END USART2_Init 0 */
+
+  /* USER CODE BEGIN USART2_Init 1 */
+
+  /* USER CODE END USART2_Init 1 */
+  huart2.Instance = USART2;
+  huart2.Init.BaudRate = 2400;
+  huart2.Init.WordLength = UART_WORDLENGTH_9B;
+  huart2.Init.StopBits = UART_STOPBITS_1;
+  huart2.Init.Parity = UART_PARITY_EVEN;
+  huart2.Init.Mode = UART_MODE_TX_RX;
+  huart2.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart2.Init.OverSampling = UART_OVERSAMPLING_16;
+  if (HAL_UART_Init(&huart2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN USART2_Init 2 */
+
+  /* USER CODE END USART2_Init 2 */
+
+}
+
+/**
   * @brief GPIO Initialization Function
   * @param None
   * @retval None
@@ -294,7 +329,7 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(LED_PIN_GPIO_Port, LED_PIN_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, A7_Pin_Pin|TX_EN_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(TX_EN_GPIO_Port, TX_EN_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin : LED_PIN_Pin */
   GPIO_InitStruct.Pin = LED_PIN_Pin;
@@ -303,12 +338,12 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(LED_PIN_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : A7_Pin_Pin TX_EN_Pin */
-  GPIO_InitStruct.Pin = A7_Pin_Pin|TX_EN_Pin;
+  /*Configure GPIO pin : TX_EN_Pin */
+  GPIO_InitStruct.Pin = TX_EN_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+  HAL_GPIO_Init(TX_EN_GPIO_Port, &GPIO_InitStruct);
 
 }
 
