@@ -48,7 +48,7 @@ UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
-uint8_t Rxdata[32];
+uint8_t Rxdata[38];
 uint8_t Txdata[8];
 bool modbus_stat;
 char *text;
@@ -92,8 +92,8 @@ void send_debug_CDC(char *data){
 
 void modbus(uint8_t slaveAdd, uint8_t funcCode, uint8_t startAddr1, uint8_t startAddr2, uint8_t qty1, uint8_t qty2){
 	uint8_t* dataFrame[] = {&slaveAdd, &funcCode, &startAddr1, &startAddr2, &qty1, &qty2};
-
-	HAL_UARTEx_ReceiveToIdle_IT(&huart2, Rxdata, 32);
+	memset(Rxdata, 0, sizeof(Rxdata));
+	HAL_UARTEx_ReceiveToIdle_IT(&huart2, Rxdata, sizeof(Rxdata));
 
 	for (int x = 0; x < 6; x++){
 		Txdata[x] = *dataFrame[x];
@@ -131,16 +131,11 @@ void request_modbus(uint8_t *data){
 
 	}else{
 		modbus_stat = 0;
-		send_debug_CDC("Modbus Response :");
-		int offset1 = 0;
-		for (int x = 0; x < sizeof(Rxdata)/sizeof(Rxdata[0]); x++){
-			offset1+= sprintf(text+offset1, "%02X", Rxdata[x]);
-		}
 		sprintf(text,"No Response from slave!!!");
 		send_debug_CDC(text);
 		HAL_Delay(5);
 	}
-	memset(Rxdata, 0, sizeof(Rxdata));
+
 }
 
 void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size){
@@ -189,7 +184,7 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  modbus(0x02, 0x03, 0x00, 0x00, 0x00, 0x0A);
+	  modbus(0x01, 0x03, 0x00, 0x07, 0x00, 0x02);
 	  HAL_Delay(1000);
     /* USER CODE END WHILE */
 
