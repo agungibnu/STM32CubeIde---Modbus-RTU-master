@@ -92,7 +92,7 @@ void send_debug_CDC(char *data){
 
 void modbus(uint8_t slaveAdd, uint8_t funcCode, uint8_t startAddr1, uint8_t startAddr2, uint8_t qty1, uint8_t qty2){
 	uint8_t* dataFrame[] = {&slaveAdd, &funcCode, &startAddr1, &startAddr2, &qty1, &qty2};
-	memset(Rxdata, 0, sizeof(Rxdata));
+
 	HAL_UARTEx_ReceiveToIdle_IT(&huart2, Rxdata, sizeof(Rxdata));
 
 	for (int x = 0; x < 6; x++){
@@ -127,6 +127,7 @@ void request_modbus(uint8_t *data){
 		}
 		send_debug_CDC("Modbus Response :");
 		send_debug_CDC(text);
+		decode_data();
 		HAL_Delay(5);
 
 	}else{
@@ -135,7 +136,25 @@ void request_modbus(uint8_t *data){
 		send_debug_CDC(text);
 		HAL_Delay(5);
 	}
+}
 
+void decode_data(){
+	uint8_t databyte[4];
+	uint32_t sensordata= 0;
+	int offset1 = 0;
+
+	for (int i = 0; i < 4; i++){
+		databyte[i] = Rxdata[3+i];
+		offset1+= sprintf(text+offset1, "%02X", databyte[i]);
+	}
+	send_debug_CDC(text);
+
+//	for (int i = 0; i < 4; i++){
+//		sensordata = (sensordata << 8) | databyte[i];
+//	}
+	sensordata = (Rxdata[6] << 24) | (Rxdata[5] << 16) | (Rxdata[3] << 8) | Rxdata[4];
+	sprintf(text, "Sensor data : %lu", sensordata);
+	send_debug_CDC(text);
 }
 
 void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size){
@@ -177,6 +196,7 @@ int main(void)
   MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
   send_debug_CDC("[MODBUS RTU PROGRAM]");
+  HAL_UARTEx_ReceiveToIdle_IT(&huart2, Rxdata, sizeof(Rxdata));
   text = malloc(512);
   /* USER CODE END 2 */
 
